@@ -178,6 +178,8 @@ main(int argc, char *const argv[])
 	}
 	state.mac = mac;
 	port_args.da_pa_name = port;
+	if (debug)
+		port_args.da_flags = DA_DEBUG;
 	if (server) {
 		port_args.da_rx_dispatch = server_dispatch;
 		port_args.da_poll_timeout = 10000;
