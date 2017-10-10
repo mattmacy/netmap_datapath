@@ -71,6 +71,8 @@ server_dispatch(char *rxbuf, char *txbuf, path_state_t *ps, void *arg)
     struct arphdr_ether *sae = (struct arphdr_ether *)(rxbuf + ETHER_HDR_LEN);
     struct ping_state *state = arg;
 
+	if (ps->ps_dir == BtoA)
+		return 0;
 	if (sae->ae_hdr.data != AE_REQUEST) {
 		printf("got unrecognized packet, 0x%016lX\n", sae->ae_hdr.data);
 		return (0);
