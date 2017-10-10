@@ -40,13 +40,14 @@ client_dispatch(char *rxbuf, char *txbuf, path_state_t *ps, void *arg)
 	struct ether_header *seh = (struct ether_header *)rxbuf;
 	struct arphdr_ether *sae = (struct arphdr_ether *)(rxbuf + ETHER_HDR_LEN);
 	struct ping_state *state = arg;
+	uint16_t op;
 	uint8_t *m; 
 	
 	if (rxbuf != NULL) {
 		m = seh->ether_shost;
+		op = be16toh(sae->ae_hdr.fields.ar_op);
 		printf("got op: 0x%02x from: %02x:%02x:%02x:%02x:%02x:%02x\n",
-			   sae->ae_hdr.fields.ar_op,
-			   m[0], m[1], m[2], m[3], m[4], m[5]);
+			   op, m[0], m[1], m[2], m[3], m[4], m[5]);
 		return (0);
 	}
 
@@ -69,7 +70,6 @@ server_dispatch(char *rxbuf, char *txbuf, path_state_t *ps, void *arg)
 	struct arphdr_ether *sae = (struct arphdr_ether *)(rxbuf + ETHER_HDR_LEN);
 	struct ping_state *state = arg;
 
-	printf("got dispatch\n");
 	if (sae->ae_hdr.data != AE_REQUEST) {
 		printf("got unrecognized packet, 0x%016lX\n", sae->ae_hdr.data);
 		return (0);
