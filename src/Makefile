@@ -1,6 +1,6 @@
 default: all
 
-CFLAGS= -Wall -Weverything -Wno-packed -Wno-missing-noreturn -DDEBUG
+CFLAGS= -Wall -g -Weverything -Wno-packed -Wno-missing-noreturn -DDEBUG
 
 all: ping
 
