@@ -15,31 +15,31 @@
 #include "datapath.h"
 
 struct ping_state {
-    uint64_t mac;
+	uint64_t mac;
 };
 
 #define AE_REQUEST		0x0100040600080100UL
 #define AE_REPLY		0x0200040600080100UL
 
 struct arphdr_ether {
-    union {
+	union {
 		uint64_t data;
 		struct arphdr fields;
-    } ae_hdr;
-    uint8_t	ae_sha[ETHER_ADDR_LEN];
-    uint32_t	ae_spa;
-    uint8_t	ae_tha[ETHER_ADDR_LEN];
-    uint32_t	ae_tpa;
+	} ae_hdr;
+	uint8_t	ae_sha[ETHER_ADDR_LEN];
+	uint32_t	ae_spa;
+	uint8_t	ae_tha[ETHER_ADDR_LEN];
+	uint32_t	ae_tpa;
 } __packed;
 
 static int
 client_dispatch(char *rxbuf, char *txbuf, path_state_t *ps, void *arg)
 {
-    struct ether_header *deh = (struct ether_header *)txbuf;
-    struct arphdr_ether *dae = (struct arphdr_ether *)(txbuf + ETHER_HDR_LEN);
-    struct ether_header *seh = (struct ether_header *)rxbuf;
-    struct arphdr_ether *sae = (struct arphdr_ether *)(rxbuf + ETHER_HDR_LEN);
-    struct ping_state *state = arg;
+	struct ether_header *deh = (struct ether_header *)txbuf;
+	struct arphdr_ether *dae = (struct arphdr_ether *)(txbuf + ETHER_HDR_LEN);
+	struct ether_header *seh = (struct ether_header *)rxbuf;
+	struct arphdr_ether *sae = (struct arphdr_ether *)(rxbuf + ETHER_HDR_LEN);
+	struct ping_state *state = arg;
 	uint8_t *m; 
 	
 	if (rxbuf != NULL) {
@@ -57,27 +57,27 @@ client_dispatch(char *rxbuf, char *txbuf, path_state_t *ps, void *arg)
 
 	*(ps->ps_tx_len) = ETHER_HDR_LEN + sizeof(uint64_t);
 	printf("sent ARP_REQUEST\n");
-    return (1);
+	return (1);
 }
 
 static int
 server_dispatch(char *rxbuf, char *txbuf, path_state_t *ps, void *arg)
 {
-    struct ether_header *deh = (struct ether_header *)txbuf;
-    struct arphdr_ether *dae = (struct arphdr_ether *)(txbuf + ETHER_HDR_LEN);
-    struct ether_header *seh = (struct ether_header *)rxbuf;
-    struct arphdr_ether *sae = (struct arphdr_ether *)(rxbuf + ETHER_HDR_LEN);
-    struct ping_state *state = arg;
+	struct ether_header *deh = (struct ether_header *)txbuf;
+	struct arphdr_ether *dae = (struct arphdr_ether *)(txbuf + ETHER_HDR_LEN);
+	struct ether_header *seh = (struct ether_header *)rxbuf;
+	struct arphdr_ether *sae = (struct arphdr_ether *)(rxbuf + ETHER_HDR_LEN);
+	struct ping_state *state = arg;
 
 	printf("got dispatch\n");
 	if (sae->ae_hdr.data != AE_REQUEST) {
 		printf("got unrecognized packet, 0x%016lX\n", sae->ae_hdr.data);
 		return (0);
 	}
-    memcpy(&deh->ether_dhost, seh->ether_shost, ETHER_ADDR_LEN);
-    memcpy(&deh->ether_shost, &state->mac, ETHER_ADDR_LEN);
-    deh->ether_type = htobe16(ETHERTYPE_ARP);
-    dae->ae_hdr.data = AE_REPLY;
+	memcpy(&deh->ether_dhost, seh->ether_shost, ETHER_ADDR_LEN);
+	memcpy(&deh->ether_shost, &state->mac, ETHER_ADDR_LEN);
+	deh->ether_type = htobe16(ETHERTYPE_ARP);
+	dae->ae_hdr.data = AE_REPLY;
 
 	*(ps->ps_tx_len) = ETHER_HDR_LEN + sizeof(uint64_t);
 	return (1);
@@ -97,7 +97,7 @@ mac_parse(char *input)
 	free(mac);
 	if (i < ETHER_ADDR_LEN)
 		return 0;
-	return  mac_num;
+	return	mac_num;
 }
 
 static void
@@ -110,16 +110,16 @@ usage(char *name)
 int
 main(int argc, char *const argv[])
 {
-    int ch;
-    char *port = NULL, *macp = NULL;
-    uint64_t mac;
-    int debug = 0, server = 0;
-    dp_args_t port_args;
-    struct ping_state state;
+	int ch;
+	char *port = NULL, *macp = NULL;
+	uint64_t mac;
+	int debug = 0, server = 0;
+	dp_args_t port_args;
+	struct ping_state state;
 
-    mac = 0;
-    bzero(&port_args, sizeof(dp_args_t));
-    while ((ch = getopt(argc, argv, "e:p:sd")) != -1) {
+	mac = 0;
+	bzero(&port_args, sizeof(dp_args_t));
+	while ((ch = getopt(argc, argv, "e:p:sd")) != -1) {
 		switch (ch) {
 			case 's':
 				server = 1;
@@ -136,24 +136,24 @@ main(int argc, char *const argv[])
 			default:
 				usage(argv[0]);
 		}
-    }
-    if (macp == NULL) {
+	}
+	if (macp == NULL) {
 		if (server) {
 			mac = mac_parse("CA:FE:00:00:BA:BE");
 		} else {
 			mac = mac_parse("CA:FE:00:00:BE:EF");
 		}
-    }
-    if (port == NULL) {
+	}
+	if (port == NULL) {
 		if (server) {
 			port = "vale_a:0";
 		} else {
 			port = "vale_a:1";
 		}
-    }
-    state.mac = mac;
-    port_args.da_pa_name = port;
-    if (server) {
+	}
+	state.mac = mac;
+	port_args.da_pa_name = port;
+	if (server) {
 		port_args.da_rx_dispatch = server_dispatch;
 		port_args.da_poll_timeout = 5000;
 	} else {
@@ -162,6 +162,6 @@ main(int argc, char *const argv[])
 		port_args.da_poll_timeout = 1000;
 
 	}
-    run_datapath(&port_args, &state);
-    return 0;
+	run_datapath(&port_args, &state);
+	return 0;
 }
