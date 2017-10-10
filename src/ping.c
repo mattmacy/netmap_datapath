@@ -157,6 +157,7 @@ main(int argc, char *const argv[])
 				break;
 			case 'p':
 				port = optarg;
+				break;
 			case '?':
 			default:
 				usage(argv[0]);
