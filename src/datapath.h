@@ -75,7 +75,7 @@ typedef struct {
 	struct nm_desc **da_pb; /* pointer to where to store b's nm_desc */
 	pkt_dispatch_t da_rx_dispatch; /* dispatch handler for rx */
 	pkt_dispatch_t da_tx_dispatch; /* dispatch handler for tx -- client operation */
-    int da_poll_timeout; /* poll timeout interval in ms */
+	int da_poll_timeout; /* poll timeout interval in ms */
 	int da_flags;
 } dp_args_t;
 
