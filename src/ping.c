@@ -42,7 +42,7 @@ client_dispatch(char *rxbuf, char *txbuf, path_state_t *ps, void *arg)
     struct ping_state *state = arg;
 	uint8_t *m; 
 	
-	if (ps->ps_rx_len != 0) {
+	if (rxbuf != NULL) {
 		m = seh->ether_shost;
 		printf("got op: 0x%02x from: %02x:%02x:%02x:%02x:%02x:%02x\n",
 			   sae->ae_hdr.fields.ar_op,
@@ -69,6 +69,7 @@ server_dispatch(char *rxbuf, char *txbuf, path_state_t *ps, void *arg)
     struct arphdr_ether *sae = (struct arphdr_ether *)(rxbuf + ETHER_HDR_LEN);
     struct ping_state *state = arg;
 
+	printf("got dispatch\n");
 	if (sae->ae_hdr.data != AE_REQUEST) {
 		printf("got unrecognized packet, 0x%016lX\n", sae->ae_hdr.data);
 		return (0);
@@ -102,7 +103,7 @@ mac_parse(char *input)
 static void
 usage(char *name)
 {
-	printf("usage: %s [-c] -e <mac addr> -p <netmap port>\n", name);
+	printf("usage: %s [-s] [-e <mac addr>] [-p <netmap port>]\n", name);
 	exit(1);
 }
 
@@ -110,21 +111,21 @@ int
 main(int argc, char *const argv[])
 {
     int ch;
-    char *port = NULL;
+    char *port = NULL, *macp = NULL;
     uint64_t mac;
-    int debug = 0, client = 0;
+    int debug = 0, server = 0;
     dp_args_t port_args;
     struct ping_state state;
 
     mac = 0;
     bzero(&port_args, sizeof(dp_args_t));
-    while ((ch = getopt(argc, argv, "e:c:p:d")) != -1) {
+    while ((ch = getopt(argc, argv, "e:p:sd")) != -1) {
 		switch (ch) {
-			case 'c':
-				client = 1;
+			case 's':
+				server = 1;
 				break;
 			case 'e':
-				mac = mac_parse(optarg);
+				macp = optarg;
 				break;
 			case 'd':
 				debug = 1;
@@ -136,23 +137,30 @@ main(int argc, char *const argv[])
 				usage(argv[0]);
 		}
     }
-    if (mac == 0) {
-		printf("missing mac address\n");
-		usage(argv[0]);
+    if (macp == NULL) {
+		if (server) {
+			mac = mac_parse("CA:FE:00:00:BA:BE");
+		} else {
+			mac = mac_parse("CA:FE:00:00:BE:EF");
+		}
     }
     if (port == NULL) {
-		printf("missing netmap port\n");
-		usage(argv[0]);
+		if (server) {
+			port = "vale_a:0";
+		} else {
+			port = "vale_a:1";
+		}
     }
     state.mac = mac;
     port_args.da_pa_name = port;
-    if (client) {
+    if (server) {
+		port_args.da_rx_dispatch = server_dispatch;
+		port_args.da_poll_timeout = 5000;
+	} else {
 		port_args.da_tx_dispatch = client_dispatch;
 		port_args.da_rx_dispatch = client_dispatch;
 		port_args.da_poll_timeout = 1000;
-	} else {
-		port_args.da_rx_dispatch = server_dispatch;
-		port_args.da_poll_timeout = 5000;
+
 	}
     run_datapath(&port_args, &state);
     return 0;
