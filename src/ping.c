@@ -12,10 +12,18 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#ifdef DEBUG
+#define NETMAP_WITH_LIBS
+#include <net/netmap_user.h>
+#endif
+
 #include "datapath.h"
 
 struct ping_state {
 	uint64_t mac;
+	struct timeval t;
+	uint32_t count;
+	int pad;
 };
 
 #define AE_REQUEST		0x0100040600080100UL
@@ -40,24 +48,36 @@ client_dispatch(char *rxbuf, char *txbuf, path_state_t *ps, void *arg)
 	struct ether_header *seh = (struct ether_header *)rxbuf;
 	struct arphdr_ether *sae = (struct arphdr_ether *)(rxbuf + ETHER_HDR_LEN);
 	struct ping_state *state = arg;
+	struct timeval t0, delta;
+	char buf[16];
 	uint16_t op;
 	uint8_t *m; 
 	
 	if (rxbuf != NULL) {
 		m = seh->ether_shost;
 		op = be16toh(sae->ae_hdr.fields.ar_op);
-		printf("got op: 0x%02x from: %02x:%02x:%02x:%02x:%02x:%02x\n",
-			   op, m[0], m[1], m[2], m[3], m[4], m[5]);
+		snprintf(buf, 16, "op: 0x%02x", op);
+		D("got %s from: %02x:%02x:%02x:%02x:%02x:%02x count: %d",
+		  op == 2 ? "ARP_REPLY" : buf, m[0], m[1], m[2], m[3], m[4], m[5],
+		  sae->ae_spa);
 		return (0);
 	}
+
+	gettimeofday(&t0, NULL);
+	timersub(&t0, &state->t, &delta);
+	if (delta.tv_sec < 1)
+		return (0);
+
+	state->t.tv_sec = t0.tv_sec;
+	state->t.tv_usec = t0.tv_usec;
 
 	memset(&deh->ether_dhost, 0xFF, ETHER_ADDR_LEN);
 	memcpy(&deh->ether_shost, &state->mac, ETHER_ADDR_LEN);
 	deh->ether_type = htobe16(ETHERTYPE_ARP);
 	dae->ae_hdr.data = AE_REQUEST;
-
+	dae->ae_spa = state->count++;
 	*(ps->ps_tx_len) = ETHER_HDR_LEN + sizeof(uint64_t);
-	printf("sent ARP_REQUEST\n");
+	D("sent ARP_REQUEST");
 	return (1);
 }
 
@@ -73,12 +93,16 @@ server_dispatch(char *rxbuf, char *txbuf, path_state_t *ps, void *arg)
 	if (sae->ae_hdr.data != AE_REQUEST) {
 		printf("got unrecognized packet, 0x%016lX\n", sae->ae_hdr.data);
 		return (0);
+	} else {
+		uint8_t *m = seh->ether_shost;
+		D("got ARP_REQUEST from: %02x:%02x:%02x:%02x:%02x:%02x count: %d",
+		  m[0], m[1], m[2], m[3], m[4], m[5], sae->ae_spa);
 	}
 	memcpy(&deh->ether_dhost, seh->ether_shost, ETHER_ADDR_LEN);
 	memcpy(&deh->ether_shost, &state->mac, ETHER_ADDR_LEN);
 	deh->ether_type = htobe16(ETHERTYPE_ARP);
 	dae->ae_hdr.data = AE_REPLY;
-
+	dae->ae_spa = sae->ae_spa;
 	*(ps->ps_tx_len) = ETHER_HDR_LEN + sizeof(uint64_t);
 	return (1);
 }
@@ -119,6 +143,7 @@ main(int argc, char *const argv[])
 
 	mac = 0;
 	bzero(&port_args, sizeof(dp_args_t));
+	bzero(&state, sizeof(struct ping_state));
 	while ((ch = getopt(argc, argv, "e:p:sd")) != -1) {
 		switch (ch) {
 			case 's':
@@ -155,7 +180,7 @@ main(int argc, char *const argv[])
 	port_args.da_pa_name = port;
 	if (server) {
 		port_args.da_rx_dispatch = server_dispatch;
-		port_args.da_poll_timeout = 5000;
+		port_args.da_poll_timeout = 10000;
 	} else {
 		port_args.da_tx_dispatch = client_dispatch;
 		port_args.da_rx_dispatch = client_dispatch;
